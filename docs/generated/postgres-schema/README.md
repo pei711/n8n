@@ -131,6 +131,7 @@ Auto-generated from the PostgreSQL migrations in @n8n/db. Do not edit by hand.
 | [public.role_scope](public.role_scope.md) | 2 |  | BASE TABLE |
 | [public.scheduled_job](public.scheduled_job.md) | 25 |  | BASE TABLE |
 | [public.scheduled_task](public.scheduled_task.md) | 19 |  | BASE TABLE |
+| [public.scim_token](public.scim_token.md) | 6 |  | BASE TABLE |
 | [public.scope](public.scope.md) | 3 |  | BASE TABLE |
 | [public.secrets_provider_connection](public.secrets_provider_connection.md) | 7 |  | BASE TABLE |
 | [public.self_healing_investigation](public.self_healing_investigation.md) | 12 |  | BASE TABLE |
@@ -390,6 +391,7 @@ erDiagram
 "public.role_scope" }o--|| "public.scope" : "FOREIGN KEY (#quot;scopeSlug#quot;) REFERENCES scope(slug) ON UPDATE CASCADE ON DELETE CASCADE"
 "public.role_scope" }o--|| "public.role" : "FOREIGN KEY (#quot;roleSlug#quot;) REFERENCES role(slug) ON UPDATE CASCADE ON DELETE CASCADE"
 "public.scheduled_task" }o--|| "public.scheduled_job" : "FOREIGN KEY (#quot;jobId#quot;) REFERENCES scheduled_job(id) ON DELETE CASCADE"
+"public.scim_token" }o--o| "public.user" : "FOREIGN KEY (#quot;createdById#quot;) REFERENCES #quot;user#quot;(id) ON DELETE SET NULL"
 "public.self_healing_investigation" }o--|| "public.user" : "FOREIGN KEY (#quot;backgroundUserId#quot;) REFERENCES #quot;user#quot;(id) ON DELETE CASCADE"
 "public.self_healing_investigation" }o--|| "public.workflow_entity" : "FOREIGN KEY (#quot;workflowId#quot;) REFERENCES workflow_entity(id) ON DELETE CASCADE"
 "public.self_healing_investigation" }o--|| "public.project" : "FOREIGN KEY (#quot;projectId#quot;) REFERENCES project(id) ON DELETE CASCADE"
@@ -1711,6 +1713,14 @@ erDiagram
   varchar_16_ status
   varchar_128_ taskType
   integer timeoutSeconds
+}
+"public.scim_token" {
+  timestamp_3__with_time_zone createdAt
+  uuid createdById FK
+  integer id
+  timestamp_3__with_time_zone lastUsedAt
+  varchar_16_ slot
+  text token
 }
 "public.scope" {
   text description
