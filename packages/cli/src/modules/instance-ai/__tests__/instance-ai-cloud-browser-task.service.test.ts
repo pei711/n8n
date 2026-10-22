@@ -792,5 +792,107 @@ describe('InstanceAiCloudBrowserTaskService', () => {
 			expect(startFollowUpRun).toHaveBeenCalledTimes(2);
 			expect(startFollowUpRun.mock.calls[1][2]).toContain('$20 a month');
 		});
+
+		it("tells the UI each delivered task's result reached the orchestrator", async () => {
+			const { service, run, eventBus, spawnOptions, runSpawnedTask } = setup();
+			await service.startTask(task, run);
+			await runSpawnedTask();
+
+			await service.deliverPendingResults(run.user, THREAD_ID);
+
+			expect(eventBus.publish).toHaveBeenCalledWith(THREAD_ID, {
+				type: 'agent-result-delivered',
+				runId: 'run-1',
+				agentId: spawnOptions().agentId,
+				payload: {},
+			});
+		});
+
+		it('tells the UI about each task when one run delivers several tasks', async () => {
+			const { service, run, eventBus, backgroundTaskManager } = setup();
+			await service.startTask({ ...task, title: 'First' }, run);
+			await service.startTask({ ...task, title: 'Second' }, run);
+			const spawned = backgroundTaskManager.spawn.mock.calls.map(([options]) => options);
+			for (const options of spawned) {
+				await options.run(
+					new AbortController().signal,
+					() => [],
+					async () => {},
+					{},
+				);
+			}
+
+			await service.deliverPendingResults(run.user, THREAD_ID);
+
+			const delivered = eventBus.publish.mock.calls
+				.map(([, event]) => event)
+				.filter((event) => event.type === 'agent-result-delivered');
+			expect(delivered).toHaveLength(2);
+			expect(delivered).toEqual(
+				expect.arrayContaining(
+					spawned.map((options) => ({
+						type: 'agent-result-delivered',
+						runId: 'run-1',
+						agentId: options.agentId,
+						payload: {},
+					})),
+				),
+			);
+			expect(spawned[0].agentId).not.toBe(spawned[1].agentId);
+		});
+
+		it('does not tell the UI a result was delivered when no run can start', async () => {
+			const { service, run, eventBus, startFollowUpRun, runSpawnedTask } = setup();
+			await service.startTask(task, run);
+			await runSpawnedTask();
+			startFollowUpRun.mockResolvedValueOnce('');
+
+			await service.deliverPendingResults(run.user, THREAD_ID);
+
+			expect(eventBus.publish).not.toHaveBeenCalledWith(
+				THREAD_ID,
+				expect.objectContaining({ type: 'agent-result-delivered' }),
+			);
+		});
+	});
+
+	describe('getLiveView', () => {
+		it("passes on the browser's live view", async () => {
+			const { service, cloudBrowserService } = setup();
+			cloudBrowserService.getLiveView.mockResolvedValue({ status: 'no-session' });
+
+			expect(await service.getLiveView('user-1', THREAD_ID, 'task-1')).toEqual({
+				status: 'no-session',
+			});
+			expect(cloudBrowserService.getLiveView).toHaveBeenCalledWith('user-1', THREAD_ID, 'task-1');
+		});
+
+		it('reads as starting for a running task that has no browser server yet', async () => {
+			const { service, cloudBrowserService, backgroundTaskManager } = setup();
+			cloudBrowserService.getLiveView.mockResolvedValue({ status: 'not-found' });
+			backgroundTaskManager.getRunningTasks.mockReturnValue([
+				{ taskId: 'task-1', role: 'cloud-browser' },
+			] as ReturnType<BackgroundTaskManager['getRunningTasks']>);
+
+			expect(await service.getLiveView('user-1', THREAD_ID, 'task-1')).toEqual({
+				status: 'starting',
+			});
+			expect(backgroundTaskManager.getRunningTasks).toHaveBeenCalledWith(THREAD_ID);
+		});
+
+		it.each([
+			['no task runs', []],
+			['the running task is not a browser task', [{ taskId: 'task-1', role: 'workflow-builder' }]],
+		])('reads as not found when %s', async (_, running) => {
+			const { service, cloudBrowserService, backgroundTaskManager } = setup();
+			cloudBrowserService.getLiveView.mockResolvedValue({ status: 'not-found' });
+			backgroundTaskManager.getRunningTasks.mockReturnValue(
+				running as ReturnType<BackgroundTaskManager['getRunningTasks']>,
+			);
+
+			expect(await service.getLiveView('user-1', THREAD_ID, 'task-1')).toEqual({
+				status: 'not-found',
+			});
+		});
 	});
 });

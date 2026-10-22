@@ -1,4 +1,5 @@
 import { wrapUntrustedData, type ExecutionOptions } from '@n8n/agents';
+import type { InstanceAiCloudBrowserLiveViewResponse } from '@n8n/api-types';
 import type { User } from '@n8n/db';
 import {
 	CloudBrowserTaskStorage,
@@ -454,6 +455,27 @@ export class InstanceAiCloudBrowserTaskService {
 	}
 
 	/**
+	 * The live view of a task's browser, for its owner only. A task that has just started has no
+	 * browser server yet, so it reads as starting rather than not found.
+	 */
+	async getLiveView(
+		userId: string,
+		threadId: string,
+		taskId: string,
+	): Promise<InstanceAiCloudBrowserLiveViewResponse> {
+		const { cloudBrowserService, backgroundTaskManager } = this.options;
+		const liveView = await cloudBrowserService.getLiveView(userId, threadId, taskId);
+		if (liveView.status !== 'not-found') return liveView;
+
+		// if the server doesn't exist yet but the background task is running then
+		// the server is still starting up
+		const isRunning = backgroundTaskManager
+			.getRunningTasks(threadId)
+			.some((task) => task.taskId === taskId && task.role === CLOUD_BROWSER_AGENT_ROLE);
+		return isRunning ? { status: 'starting' } : liveView;
+	}
+
+	/**
 	 * Starts one follow-up run with every finished task the orchestrator has not heard about.
 	 * Called when a task ends and when a run ends, so a result that arrives mid-run reaches the
 	 * orchestrator as soon as that run is over. The claim is released when no run started.
@@ -473,6 +495,16 @@ export class InstanceAiCloudBrowserTaskService {
 				buildTasksCompletedMessage(undelivered),
 				messageGroupId,
 			);
+			if (!runId) return;
+
+			for (const task of undelivered) {
+				this.options.eventBus.publish(threadId, {
+					type: 'agent-result-delivered',
+					runId: task.runId,
+					agentId: task.agentId,
+					payload: {},
+				});
+			}
 		} finally {
 			if (!runId) await this.taskStore.releaseClaim(threadId, undelivered);
 		}

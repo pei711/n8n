@@ -1824,6 +1824,38 @@ describe('InstanceAiController', () => {
 		});
 	});
 
+	describe('cloudBrowserLiveView', () => {
+		it('should require instanceAi:message scope', () => {
+			expect(scopeOf('cloudBrowserLiveView')).toEqual({
+				scope: 'instanceAi:message',
+				globalOnly: true,
+			});
+		});
+
+		it("should return the task's live view for the thread's owner", async () => {
+			memoryService.checkThreadOwnership.mockResolvedValue('owned');
+			instanceAiService.getCloudBrowserLiveView.mockResolvedValue({ status: 'starting' });
+
+			const result = await controller.cloudBrowserLiveView(req, res, THREAD_ID, 'task-1');
+
+			expect(result).toEqual({ status: 'starting' });
+			expect(instanceAiService.getCloudBrowserLiveView).toHaveBeenCalledWith(
+				USER_ID,
+				THREAD_ID,
+				'task-1',
+			);
+		});
+
+		it('should not read the live view of a thread the user does not own', async () => {
+			memoryService.checkThreadOwnership.mockResolvedValue('other_user');
+
+			await expect(
+				controller.cloudBrowserLiveView(req, res, THREAD_ID, 'task-1'),
+			).rejects.toThrow();
+			expect(instanceAiService.getCloudBrowserLiveView).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('correctTask', () => {
 		it('should require instanceAi:message scope', () => {
 			expect(scopeOf('correctTask')).toEqual({ scope: 'instanceAi:message', globalOnly: true });

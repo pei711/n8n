@@ -27,6 +27,7 @@ import {
 } from '@n8n/api-types';
 import type {
 	InstanceAiAdminSettingsResponse,
+	InstanceAiCloudBrowserLiveViewResponse,
 	InstanceAiEvalThreadMemoryResponse,
 	InstanceAiEvent,
 	InstanceAiThreadTabsResponse,
@@ -659,6 +660,20 @@ export class InstanceAiController {
 		await this.assertThreadAccess(req.user.id, threadId);
 		await this.instanceAiService.routeCancelBackgroundTask(threadId, taskId);
 		return { ok: true };
+	}
+
+	/** The live view of a cloud browser task. The link is never stored, so the client asks again. */
+	@Get('/chat/:threadId/tasks/:taskId/cloud-browser-live-view')
+	@GlobalScope('instanceAi:message')
+	async cloudBrowserLiveView(
+		req: AuthenticatedRequest,
+		_res: Response,
+		@Param('threadId') threadId: string,
+		@Param('taskId') taskId: string,
+	): Promise<InstanceAiCloudBrowserLiveViewResponse> {
+		this.requireInstanceAiEnabled();
+		await this.assertThreadAccess(req.user.id, threadId);
+		return await this.instanceAiService.getCloudBrowserLiveView(req.user.id, threadId, taskId);
 	}
 
 	@Post('/chat/:threadId/tasks/:taskId/correct')

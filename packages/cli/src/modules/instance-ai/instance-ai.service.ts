@@ -18,6 +18,7 @@ import {
 	TEMPLATED_CUSTOM_AUTH_CREDENTIAL_TYPE,
 	type InstanceAiAttachment,
 	type InstanceAiBuildMode,
+	type InstanceAiCloudBrowserLiveViewResponse,
 	type InstanceAiHandoffContext,
 	type InstanceAiAgentAttachment,
 	type InstanceAiFileAttachment,
@@ -1930,6 +1931,15 @@ export class InstanceAiService {
 
 	async routeCorrectionToTask(threadId: string, taskId: string, correction: string): Promise<void> {
 		await this.routeTaskControl({ threadId, taskId, action: 'correct', correction });
+	}
+
+	/** The live view of a cloud browser task, for its owner only. */
+	async getCloudBrowserLiveView(
+		userId: string,
+		threadId: string,
+		taskId: string,
+	): Promise<InstanceAiCloudBrowserLiveViewResponse> {
+		return await this.cloudBrowserTaskService.getLiveView(userId, threadId, taskId);
 	}
 
 	async routeCancelBackgroundTask(threadId: string, taskId: string): Promise<void> {
