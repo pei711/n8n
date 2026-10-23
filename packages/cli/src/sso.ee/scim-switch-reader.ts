@@ -7,9 +7,9 @@ import { Service } from '@n8n/di';
 export const SCIM_PROVISIONING_ENABLED_KEY = 'scim.provisioning.enabled';
 
 /**
- * Reads the SCIM provisioning switch for SSO code, for `sso-login-disabled`.
- * The SCIM module sets the read when it starts, so that SSO code needs no
- * import of that module.
+ * Reads the SCIM provisioning switch for core code: for `sso-login-disabled`
+ * and for the invite check. The SCIM module sets the read when it starts, so
+ * that core code needs no import of that module.
  */
 @Service()
 export class ScimSwitchReader {
